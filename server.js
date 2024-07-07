@@ -48,24 +48,120 @@ function viewDepartments() {
             console.log(err);
         } else {
             console.table(res);
+            startMenu();
         }
     });
 }
 
 function viewRoles() {
-
+    pool.query("SELECT * FROM role", (err, res) => {
+        if(err){
+            console.log(err);
+        } else {
+            console.table(res);
+            startMenu();
+        }
+    });
 }
 
 function viewEmployees() {
-
+    pool.query("SELECT * FROM employee", (err, res) => {
+        if(err){
+            console.log(err);
+        } else {
+            console.table(res);
+            startMenu();
+        }
+    });
 }
 
 function addDepartment() {
-
+    inquirer.prompt([
+        {
+            name: "department",
+            type: "input",
+            message: "What is the name of the department you would like to add?"
+        }
+    ]) .then(data => {
+            pool.query("INSERT INTO department (name) VALUES (?)", [data.department], (err, res) => {
+                if(err){
+                    console.log(err);
+                } else {
+                    console.log("Department added successfully");
+                    startMenu();
+                }
+            })
+    })
 }
 
 function addRole() {
+    pool.query("SELECT name FROM department", (err, res) => {
+        if(err){
+            console.log(err);
+            return;
+        }
 
+    // gets all the department names from the response and puts it into an array called departments
+        const departments = res.map(({name}) => name);
+
+        inquirer.prompt ([
+            {
+                name: "title",
+                type: "input",
+                message: "What is the name of the role you would like to add?"
+            },
+
+            {
+                name: "salary",
+                type: "input",
+                message: "What is the salary for the role?"
+            },
+
+            {
+                name: "department",
+                type: "list",
+                message: "What department would you like to add this role to?",
+                choices: [departments, "Create a New Department"]
+            }
+        ]).then(answers => {
+            const {title, salary, department} = answers;
+            
+            if(department === "Create a New Department") {
+                inquirer.prompt([
+                    {
+                        name: "newDepartment",
+                        type: "input",
+                        message: "What is the name of the department you would like to create?"
+                    }
+                ]).then(newDepartmentAnswer => {
+                    pool.query("INSERT INTO department (name) VALUES (?)", [newDepartmentAnswer.newDepartment], (err, res) => {
+                        if(err) {
+                            console.log(err);
+                        } else {
+                            const newDepartmentName = res.rows[0].name;
+                            pool.query("INSERT INTO role (title, salary, department) VALUES ($1, $2, $3)", [title, salary, newDepartmentName], (err, res) => {
+                                if(err) {
+                                    console.log(err);
+                                } else {
+                                    console.log("Role added successfully");
+                                    startMenu();
+                                }
+                            })
+                        }
+                    })
+                })
+            } else {
+                pool.query("INSERT INTO role (title, salary, department) VALUES ($1, $2, $3)", [title, salary, department], (err, res) => {
+                    if(err) {
+                        console.log(err);
+                    } else {
+                        console.log("Role added successfully");
+                        startMenu();
+                    }
+                });
+            }
+        });
+    });
 }
 
 function addEmployee() {
