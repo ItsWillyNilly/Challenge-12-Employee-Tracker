@@ -3,7 +3,7 @@ DROP DATABASE IF EXISTS employees_db;
 CREATE DATABASE employees_db;
 
 -- makes it so all of the following code will affect employee_db 
-\c employee_db;
+\c employees_db;
 
 -- creates a table called "employee" within employees_db 
 CREATE TABLE employee (
