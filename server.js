@@ -5,6 +5,9 @@ const {Pool} = require('pg');
 
 app = express();
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const PORT = process.env.PORT || 3001;
 
 const pool = new Pool({
@@ -83,7 +86,7 @@ function addDepartment() {
             message: "What is the name of the department you would like to add?"
         }
     ]) .then(data => {
-            pool.query("INSERT INTO department (name) VALUES (?)", [data.department], (err, res) => {
+            pool.query("INSERT INTO department (name) VALUES ($1)", [data.department], (err, res) => {
                 if(err){
                     console.log(err);
                 } else {
@@ -121,7 +124,7 @@ function addRole() {
                 name: "department",
                 type: "list",
                 message: "What department would you like to add this role to?",
-                choices: [departments, "Create a New Department"]
+                choices: [...departments, "Create a New Department"]
             }
         ]).then(answers => {
             const {title, salary, department} = answers;
@@ -134,21 +137,27 @@ function addRole() {
                         message: "What is the name of the department you would like to create?"
                     }
                 ]).then(newDepartmentAnswer => {
-                    pool.query("INSERT INTO department (name) VALUES (?)", [newDepartmentAnswer.newDepartment], (err, res) => {
-                        if(err) {
-                            console.log(err);
-                        } else {
-                            const newDepartmentName = res.rows[0].name;
-                            pool.query("INSERT INTO role (title, salary, department) VALUES ($1, $2, $3)", [title, salary, newDepartmentName], (err, res) => {
-                                if(err) {
-                                    console.log(err);
-                                } else {
-                                    console.log("Role added successfully");
-                                    startMenu();
-                                }
-                            })
-                        }
-                    })
+
+                    if(departments.includes(newDepartmentAnswer.newDepartment.trim())) {
+                        console.log("Department already exists");
+                        addRole();
+                    } else {
+                        pool.query("INSERT INTO department (name) VALUES ($1)", [newDepartmentAnswer.newDepartment], (err, res) => {
+                            if(err) {
+                                console.log(err);
+                            } else {
+                                const newDepartmentName = res.rows[0].name;
+                                pool.query("INSERT INTO role (title, salary, department) VALUES ($1, $2, $3)", [title, salary, newDepartmentName], (err, res) => {
+                                    if(err) {
+                                        console.log(err);
+                                    } else {
+                                        console.log("Role added successfully");
+                                        startMenu();
+                                    }
+                                })
+                            }
+                        })
+                    }
                 })
             } else {
                 pool.query("INSERT INTO role (title, salary, department) VALUES ($1, $2, $3)", [title, salary, department], (err, res) => {
@@ -172,6 +181,5 @@ function updateEmployee() {
 
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
 
