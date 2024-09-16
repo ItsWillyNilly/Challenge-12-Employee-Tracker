@@ -3,19 +3,12 @@ const fs = require('fs');
 const express = require('express');
 const { Pool } = require('pg');
 
-app = express();
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-const PORT = process.env.PORT || 3001;
-
 const pool = new Pool({
-    user: '',
+    user: 'postgres',
     host: 'localhost',
     database: 'employees_db',
     password: 'asdf',
-    port: 3001,
+    // port: 3001,
 });
 
 pool.connect();
@@ -26,7 +19,7 @@ function startMenu() {
             name: "start",
             type: "list",
             message: "What would you like to do?",
-            choices: ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role"]
+            choices: ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role", "Cancel"]
         }
     ]).then(data => {
         if (data.start === "View all departments") {
@@ -43,6 +36,8 @@ function startMenu() {
             addEmployee();
         } else if (data.start === "Update an employee role") {
             updateEmployee();
+        } else if (data.start === "Cancel") {
+            process.exit(0);
         }
     });
 }
@@ -52,7 +47,8 @@ function viewDepartments() {
         if (err) {
             console.log(err);
         } else {
-            console.table(res);
+            let departments = res.rows;
+            console.table(departments);
             startMenu();
         }
     });
@@ -63,7 +59,7 @@ function viewRoles() {
         if (err) {
             console.log(err);
         } else {
-            console.table(res);
+            console.table(res.rows);
             startMenu();
         }
     });
@@ -74,7 +70,7 @@ function viewEmployees() {
         if (err) {
             console.log(err);
         } else {
-            console.table(res);
+            console.table(res.rows);
             startMenu();
         }
     });
@@ -88,7 +84,7 @@ function addDepartment() {
             message: "What is the name of the department you would like to add?"
         }
     ]).then(data => {
-        pool.query("INSERT INTO department (name) VALUES ($1)", [data.department], (err, res) => {
+        pool.query("INSERT INTO department (department_name) VALUES ($1)", [data.department], (err, res) => {
             if (err) {
                 console.log(err);
             } else {
@@ -99,15 +95,16 @@ function addDepartment() {
     })
 }
 
+
 function addRole() {
-    pool.query("SELECT name, id FROM department", (err, res) => {
+    pool.query("SELECT department_name, id FROM department", (err, res) => {
         if (err) {
             console.log(err);
             return;
         }
 
         // gets all the department names and ids from the response and puts it into an array called departments
-        const departments = res.map(({ name, id }) => ({ name, id }));
+        const departments = res.rows.map(({ department_name, id }) => ({ department_name, value: department_name }));
 
         inquirer.prompt([
             {
@@ -126,7 +123,7 @@ function addRole() {
                 name: "department",
                 type: "list",
                 message: "What department would you like to add this role to?",
-                choices: [...departments.map(({ name, id }) => ({ name, value: id }), { name: "Create a New Department", value: null })]
+                choices: [...departments, { name: "Create a New Department", value: null }]
             }
         ]).then(answers => {
             const { title, salary, department } = answers;
@@ -134,17 +131,17 @@ function addRole() {
             if (department === null) {
                 inquirer.prompt([
                     {
-                        name: "newDepartment",
+                        name: "department",
                         type: "input",
                         message: "What is the name of the department you would like to create?"
                     }
-                ]).then(newDepartmentAnswer => {
-                    pool.query("INSERT INTO department (name) VALUES ($1)", [newDepartmentAnswer.newDepartment], (err, res) => {
+                ]).then(data => {
+                    pool.query("INSERT INTO department (department_name) VALUES ($1) RETURNING id", [data.department], (err, res) => {
                         if (err) {
                             console.log(err);
                         } else {
-                            const newDepartmentName = res.rows[0].id;
-                            pool.query("INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)", [title, salary, newDepartmentName], (err, res) => {
+                            const newDepartmentId = res.rows[0].id;
+                            pool.query("INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)", [title, salary, newDepartmentId], (err, res) => {
                                 if (err) {
                                     console.log(err);
                                 } else {
@@ -174,12 +171,12 @@ function addEmployee() {
         if (err) {
             console.log(err);
         } else {
-            pool.query("SELECT name, id FROM employee", (err, managerRes) => {
+            pool.query("SELECT first_name, last_name, id FROM employee", (err, managerRes) => {
                 if (err) {
                     console.log(err);
                 } else {
-                    const roles = roleRes.map(({ title, id }) => ({ name: title, value: id }));
-                    const managers = managerRes.map(({first_name, last_name, id})=> ({name: `${first_name}, ${last_name}`, value: id}));
+                    const roles = roleRes.rows.map(({ title, id }) => ({ name: title, value: id }));
+                    const managers = managerRes.rows.map(({first_name, last_name, id})=> ({name: `${first_name}, ${last_name}`, value: id}));
 
                     // gets all the role titles and ids from the response and puts it into an array called roles
                     inquirer.prompt([
@@ -231,7 +228,7 @@ function updateEmployee() {
         if(err) {
             console.log(err);
         } else {
-            const employees = employeeRes.map(({id, first_name, last_name}) => ({name: `${first_name} ${last_name}`, value: id}));
+            const employees = employeeRes.rows.map(({id, first_name, last_name}) => ({name: `${first_name} ${last_name}`, value: id}));
 
             inquirer.prompt([
                 {
@@ -245,7 +242,7 @@ function updateEmployee() {
                     if(err) {
                         console.log(err);
                     } else {
-                        const roles = rolesRes.map(({id, title}) => ({name: title, value: id}));
+                        const roles = roleRes.rows.map(({id, title}) => ({name: title, value: id}));
 
                         inquirer.prompt([
                             {
@@ -272,7 +269,3 @@ function updateEmployee() {
 }
 
 startMenu();
-
-app.listen(PORT, () => {
-    console.log(`You are now listening on (${PORT}) http://localhost:${PORT}.`);
-});

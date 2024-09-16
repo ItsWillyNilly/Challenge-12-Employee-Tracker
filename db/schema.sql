@@ -19,11 +19,11 @@ CREATE TABLE role (
   id SERIAL PRIMARY KEY,
   title VARCHAR(30) NOT NULL,
   salary DECIMAL NOT NULL,
-  department_id INT NOT NULL
+  department_id INT NOT NULL,
 );
 
 -- creates a table called "department" within employees_db
 CREATE TABLE department (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(30) UNIQUE NOT NULL
+  department_name VARCHAR(30) UNIQUE NOT NULL
 );
